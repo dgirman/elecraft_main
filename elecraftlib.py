@@ -2,6 +2,7 @@ DEBUG = 1
 import string, serial, time, os
 import platform
 import serial.tools.list_ports
+import codecs
 
 # get platform type and set port variable
 PCPORT = 'com3'
@@ -478,9 +479,15 @@ class LibK3:
         """
         self.k3.write('mn026;'.encode())  # Display serial number.
         chars, points, icons, blinks = self.getDisplay()
-        if DEBUG: print(chars, points, icons, blinks)
+        print("serial raw1 = ", chars, points, icons, blinks)
         self.k3.write('mn255;'.encode())  # Exit menu.
-        sn = int(''.join(chars))
+        print("serial raw2 = ", chars, points, icons, blinks)
+        sn_raw = ''.join(chars)
+        sn_raw = sn_raw.strip()
+        sn = sn_raw[0:5]
+        print(sn)
+
+        #print('serial = ', sn)
 
         self.DictElecraftCurrentSettings['serial_number'] = sn
         return sn
@@ -510,6 +517,68 @@ class LibK3:
         self.DictElecraftCurrentSettings['frequency_b'] = reply.decode(encoding="utf-8")
         print('VFO 2 Freq = ', reply)
 
+    def getIC(self):
+        """
+        IC (Misc. Icons and Status; GET only)
+        RSP format: ICabcde; where abcde are 8-bit ASCII characters
+        See programming manual page 13
+        :return:
+        """
+        self.k3.write('IC;'.encode())
+        reply = self.k3.read(10)
+        print(reply)
+        print(type(reply))
+        data=[]
+        # [73, 67, 128, 133, 148, 128, 132]
+        # [73, 67, 128, 133, 148, 128, 132]
+        for x in 0,1,2,3,4,5,6:
+            print(type(reply[x]), x, '{0:08b}'.format(int(reply[x])))
+            data.append(reply[x])
+            print(data)
+
+        ic_raw = '{0:08b}'.format(int(reply[5]))
+        print(ic_raw)
+        ic = ic_raw[3]
+        print(ic)
+        print(type(ic))
+        return ic
+
+
+    def getXmtNoiseGate(self):
+        """
+        get the AGC loud pulse suppresion (on or off)8
+        :return:
+        """
+        pass
+
+    def getAgcPls(self):
+        """
+        get the AGC loud pulse suppresion (on or off)8
+        :return:
+        """
+        pass
+
+    def getAgcHold(self):
+        """
+        get the AGC hold time
+        :return:
+        """
+        pass
+
+    def getAgcSlp(self):
+        """
+        Get the AGC Slope setting
+
+        :return:
+        """
+        pass
+
+    def getAgcThr(self):
+        """
+        Get the AGC Threshold setting
+        :return:
+        """
+        pass
     #
     #	s e t t e r s
     #
@@ -755,16 +824,15 @@ if __name__ == "__main__":
     # k3s.getFequency()
     #
     #k3s.getEqBandSetting(3)
-    txm_eq = [-16,-16,-6,0,0,0,0,0]
-    k3s.setEqBands(1, txm_eq)
-    k3s.getEqSettings(1)
-    rcv_eq = [0,0,0,0,0,0,0,0]
-    k3s.setEqBands(0, rcv_eq)
-    k3s.getEqSettings(0)
-
+    # txm_eq = [-16,-16,-6,0,0,0,0,0]
+    # k3s.setEqBands(1, txm_eq)
+    # k3s.getEqSettings(1)
+    # rcv_eq = [0,0,0,0,0,0,0,0]
+    # k3s.setEqBands(0, rcv_eq)
+    # k3s.getEqSettings(0)
+    #k3s.getSerialNumber()
     # k3s.getMode()
-    # k3s.getSerialNumber()
     # for key, value in k3s.DictElecraftCurrentSettings.items():
     #     print(key, ' : ', value)
-
+    k3s.getIC()
     sys.exit()
