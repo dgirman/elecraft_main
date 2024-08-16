@@ -4,6 +4,8 @@ import platform
 import serial.tools.list_ports
 import codecs
 
+from bitstring import BitArray
+
 # get platform type and set port variable
 PCPORT = 'com3'
 print('Platform = ', platform.system())
@@ -53,11 +55,52 @@ class LibK3:
         self.modeNum = ['unknown', 'lsb', 'usb', 'cw', 'fm', 'am', 'data',
                         'cwRev', 'unknown', 'dataRev']
         self.k3 = ''
-        self.DictElecraftCurrentSettings = {'frequency_a': 0,
-                                            'frequency_b': 0,
-                                            'serial_number': 0,
-                                            'mode': 0
-                                            }
+        self.ICMiscIconsStatus = []
+        self.ICMiscIconsStatus_text = []
+        self.ICMiscIconsStatus_lookup = [
+                                            [['0 = ERROR','Normal'],
+                                            ['Normal', 'BSET **'],
+                                            ['Normal', 'TX TEST'],
+                                            ['Normal power out', 'mW power level (xvtr or KXV3 test)'],
+                                            ['MSG bank 1', 'MSG bank 2'],
+                                            ['No MSG is playing', 'MSG is playing'],
+                                            ['Normal', 'CONFIG:MEM0-9 = BAND SEL'],
+                                            ['Normal', 'Preset #: 0=I, 1=II§']],
+                                            [['0 = ERROR', 'Normal'],
+                                            ['Normal', 'VFOs linked (VFO A tunes both) (K3 only)'],
+                                            ['Normal', 'VFO A/B bands are independent'],
+                                            ['Normal', 'Diversity mode (K3 only)'],
+                                            ['Sub ant. = AUX (K3 only)', 'Sub ant. = MAIN'],
+                                            ['Sub RX aux source:non-TX ATU ant (K3 only)', 'Sub RX aux source: BNC (AUX RF)'],
+                                            ['Off (K3 only)', 'Sub RX NB is on'],
+                                            ['Normal', 'Sub RX is on (dual watch in KX3/KX2)']],
+                                            [['0 = ERROR', 'Normal'],
+                                            ['Semi QSK', 'Full QSK'],
+                                            ['Normal', 'Dual-passband CW or APF in use'],
+                                            ['Normal', 'VOX on for CW, FSK-D, or PSK-D'],
+                                            ['Normal', 'Dual-tone FSK filter in use'],
+                                            ['Inverted polarity', 'Normal FSK TX polarity'],
+                                            ['Normal', 'Sync DATA'],
+                                            ['Normal', 'Text-to-terminal is in effect (see TT)']],
+                                            [['0 = ERROR', 'Normal'],
+                                            ['Normal', 'VOX on in voice, DATA A, AFSK A'],
+                                            ['Normal', 'ESSB'],
+                                            ['Noise gate off', 'Noise gate on'],
+                                            ['Normal', 'AM Sync RX'],
+                                            ['FM PL tone off', 'FM PL tone on'],
+                                            ['Normal', '(+) Rptr TX ofs'],
+                                            ['Normal', '(-) Rptr TX ofs']],
+                                            [['0 = ERROR', 'Normal'],
+                                            ['50 Hz SHIFT', '10 Hz SHIFT'],
+                                            ['AM Sync LSB', 'AM Sync USB'],
+                                            ['Normal', 'Main RX is squelched'],
+                                            ['Normal', 'Sub RX is squelched (K3 only)'],
+                                            ['Normal', 'Sub RX NR is off, Sub RX NR is on (K3 only)'],
+                                            ['VFOB LED is on (KX3/KX2 only)', 'OFS LED is on'],
+                                            ['Normal', 'Fast Play in effect (KX3/KX2 only)']]
+
+                                           ]
+
 
     def connect(self, dev=PCPORT, baud=38400):
         """Connect to K3 using specified device and baud rate.
@@ -524,25 +567,37 @@ class LibK3:
         See programming manual page 13
         :return:
         """
+        self.ICMiscIconsStatus = []
+        self.ICMiscIconsStatus_text = []
         self.k3.write('IC;'.encode())
         reply = self.k3.read(10)
-        print(reply)
-        print(type(reply))
+        if DEBUG: print("Reply:", reply)
+        if DEBUG: print("Reply Type:", type(reply))
+        if DEBUG: print(str(reply))
         data=[]
-        # [73, 67, 128, 133, 148, 128, 132]
-        # [73, 67, 128, 133, 148, 128, 132]
+        # get the binary data strings
         for x in 0,1,2,3,4,5,6:
-            print(type(reply[x]), x, '{0:08b}'.format(int(reply[x])))
-            data.append(reply[x])
-            print(data)
+            b_dat = '{0:08b}'.format(int(reply[x]))
+            if DEBUG: print("b_dat: ", type(b_dat), x, b_dat)
+            data.append(b_dat)
+            self.ICMiscIconsStatus.append(b_dat)
 
-        ic_raw = '{0:08b}'.format(int(reply[5]))
-        print(ic_raw)
-        ic = ic_raw[3]
-        print(ic)
-        print(type(ic))
-        return ic
-
+        if DEBUG: print("IC Data = ", data)
+        # make list of current state of system
+        for x in 2,3,4,5,6:
+            t_list = []
+            for y in 0,1,2,3,4,5,6,7:
+                print(x , y, 'bit is: ', int(data[x][y]))
+                if int(data[x][y]):
+                    t_dat = self.ICMiscIconsStatus_lookup[(x-2)][y][1]
+                else:
+                    t_dat = self.ICMiscIconsStatus_lookup[(x-2)][y][0]
+                t_list.append(t_dat)
+            self.ICMiscIconsStatus_text.append(t_list)
+        if DEBUG:
+            for x in 0,1,2,3,4:
+                print(self.ICMiscIconsStatus[x+2], self.ICMiscIconsStatus_text[x])
+        return self.ICMiscIconsStatus_text
 
     def getXmtNoiseGate(self):
         """
