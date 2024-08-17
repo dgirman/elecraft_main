@@ -52,6 +52,45 @@ class LibK3:
             'data': 6,
             'cwRev': 7,
             'dataRev': 9}
+
+        self.DictElecraftCurrentSettings = {'platform':0,
+                                            'frequency_a': 0,
+                                            'frequency_b': 0,
+                                            'serial_number': 0,
+                                            'mode': 0,
+                                            'MicGain':0,
+                                            'Rec1SquelchLevel':0,
+                                            'Rec2SquelchLevel':0,
+                                            'NoiseBlanker1':0,
+                                            'NoiseBlanker2':0,
+                                            'NoiseBlankerLevel1': 0,
+                                            'NoiseBlankerLevel2': 0,
+                                            'OmOptionsInstalled':0,
+                                            'RecieverPreamp1':0,
+                                            'RecieverPreamp2':0,
+                                            'ReqPowerOut_Watts':0,
+                                            'PowerOut_Watts':0,
+                                            'RecieverAttenuator1': 0,
+                                            'RecieverAttenuator2':0,
+                                            'TranscPowerStatus':0,
+                                            'RFGain1':0,
+                                            'RFGain2':0,
+                                            'HResolutionSmeter':0,
+                                            'SquelchLevel1':0,
+                                            'SquelchLevel2':0,
+                                            'SWR':0,
+                                            'RecievedTextCount':0,
+                                            'TransmittedTextCount': 0,
+                                            'TransmitMeterMode':0,
+                                            'TransmitQuery':0,
+                                            'VOXState':0,
+                                            'XFILNumber1':0,
+                                            'XFILNumber2':0,
+                                            'XITControl':0,
+                                            'AgcTimeConstant':0
+
+                                            }
+        self.DictElecraftCurrentSettings['platform'] = platform.system()
         self.modeNum = ['unknown', 'lsb', 'usb', 'cw', 'fm', 'am', 'data',
                         'cwRev', 'unknown', 'dataRev']
         self.k3 = ''
@@ -266,18 +305,27 @@ class LibK3:
         """
         self.k3.write('ds;'.encode())
         display = self.k3.read(13)  # Retrieve display.
-        if DEBUG: print('display raw = ', display)
+        if DEBUG: print(type(display), 'display raw = ', display)
+        mybyte = display[1:2]
+        if DEBUG: print(type(mybyte), 'display mybyte = ', mybyte)
+
         blinks = []
         chars = []
         icons = []
         points = []
         for i in range(8):
+            x = '{0:08b}'.format(int(display[i]))
+            if DEBUG: print('Display Byte',i, x)
+
             c = display[i + 3] & 0x7f  # Strip MSB (decimal point data)
+            if DEBUG: print('c',c)
             mask = display[i + 3] & 0x7f
+            if DEBUG: print('mask', mask)
             c_raw = c
             c = chr(c)
             c_char = c
-            print('c char =', c)
+            if DEBUG: print('c_char', c_char)
+            if DEBUG: print('c', c)
             if c == '<':
                 c = 'L'
             elif c == '>':
@@ -403,29 +451,6 @@ class LibK3:
         essbMode = self.k3.read(3)  # EQn, n == 0/1 for ESSB off/on.
         return essbMode[2] == '1'
 
-    def getFreq_Hz(self, vfo):
-        """Get current frequency setting of specified VFO.
-
-        Input:
-          vfo (string): A or B, case insensitive, specifying VFO.
-
-        Output:
-          (int): current frequency, in Hz, that VFO is tuned to.
-        """
-        if not vfo.lower() in ['a', 'b']:
-            print('getFreq_Hz: vfo must be A or B, not %s' % vfo)
-            return 0
-        cmd = 'f%c;' % vfo
-        self.k3.write(cmd.encode())
-        time.sleep(100e-6)  # 100 usec
-        reply = self.k3.read(14)  # Should be: FA###########;
-        try:
-            f_Hz = int(reply[2:13])
-        except ValueError:
-            print('getFreq_Hz: unexpected K3 reply "%s"' % reply)
-            f_Hz = -1
-        return f_Hz
-
     def getKeyerSpeed_wpm(self):
         """Return the current keyer speed in units of words/minute.
 
@@ -462,7 +487,7 @@ class LibK3:
                 gotIt = True
                 break
         if not gotIt:
-            print('getMode: after %d tries, unexpected K3 reply "%s"'
+            if DEBUG: print('getMode: after %d tries, unexpected K3 reply "%s"'
                   % (numTries, reply))
             return 'unknown'
         mode = self.modeNum[int(reply[2])]
@@ -471,7 +496,7 @@ class LibK3:
         self.DictElecraftCurrentSettings['mode'] = mode
         return mode
 
-    def getPower_W(self):
+    def getReqPower_W(self):
         """Return current power level in units of Watts.
 
         Input: None
@@ -481,36 +506,189 @@ class LibK3:
         """
         self.k3.write('pc;'.encode())
         reply = self.k3.read(6)
+        reply = str(reply, 'utf-8')  # Convert bytes to string.
+        if DEBUG: print('Req Power Out Watts = ', reply)
         try:
             power_W = int(reply[2:5])
+            self.DictElecraftCurrentSettings['ReqPowerOut_Watts'] = power_W
         except ValueError:
-            print('getPower_W: unexpected K3 reply "%s"' % reply)
+            if DEBUG: print('getPower_W: unexpected K3 reply "%s"' % reply)
+            power_W = -1
+        return power_W
+    def getPower_W(self):
+        """Return current power level in units of Watts.
+
+        Input: None
+
+        Output:
+          (float): amplifier power level in Watts.
+        """
+        self.k3.write('po;'.encode())
+        reply = self.k3.read(6)
+        reply = str(reply, 'utf-8')  # Convert bytes to string.
+        if DEBUG: print('Power Out Watts = ', reply)
+        try:
+            power_W = int(reply[2:5])
+            self.DictElecraftCurrentSettings['PowerOut_Watts'] = power_W
+        except ValueError:
+            if DEBUG: print('getPower_W: unexpected K3 reply "%s"' % reply)
             power_W = -1
         return power_W
 
     def getNoiseBlanker(self):
+        self.k3.write('NB;'.encode())
+        reply = self.k3.read(20)
+        reply = str(reply, 'utf-8')  # Convert bytes to string.
+        self.DictElecraftCurrentSettings['NoiseBlanker1'] = reply[2]
+        if DEBUG: print('NoiseBlanker1 = ', reply)
+        self.k3.write('NB$;'.encode())
+        reply = self.k3.read(20)
+        reply = str(reply, 'utf-8')  # Convert bytes to string.
+        self.DictElecraftCurrentSettings['NoiseBlanker2'] = reply[3]
+        if DEBUG: print('NoiseBlanker2 = ', reply)
+
+    def getNoiseBankerLevel(self):
         self.k3.write('NL;'.encode())
         reply = self.k3.read(20)
-        print('Rec 1 Noise Blanker = ', reply)
+        reply = str(reply, 'utf-8')  # Convert bytes to string.
+        self.DictElecraftCurrentSettings['NoiseBlankerLevel1'] = reply[2:-1]
+        if DEBUG: print('NoiseBlankerLevel1 = ', reply)
         self.k3.write('NL$;'.encode())
         reply = self.k3.read(20)
-        print('Rec 2 Noise Blanker = ', reply)
+        reply = str(reply, 'utf-8')  # Convert bytes to string.
+        self.DictElecraftCurrentSettings['NoiseBlankerLevel2'] = reply[3:-1]
+        if DEBUG: print('NoiseBlankerLevel2 = ', reply)
 
-    def getAttenuator(self):
+    def getRecieverPreamp(self):
+        self.k3.write('PA;'.encode())
+        reply = self.k3.read(20)
+        reply = str(reply, 'utf-8')  # Convert bytes to string.
+        self.DictElecraftCurrentSettings['RecieverPreamp1'] = reply[2:-1]
+        if DEBUG: print('RecieverPreamp1 = ', reply)
+        self.k3.write('PA$;'.encode())
+        reply = self.k3.read(20)
+        reply = str(reply, 'utf-8')  # Convert bytes to string.
+        self.DictElecraftCurrentSettings['RecieverPreamp2'] = reply[3:-1]
+        if DEBUG: print('RecieverPreamp2 = ', reply)
+    def getRecieverAttenuator(self):
         self.k3.write('RA;'.encode())
         reply = self.k3.read(20)
-        print('Rec 1 Atten = ', reply)
+        reply = str(reply, 'utf-8')  # Convert bytes to string.
+        if DEBUG: print('RecieveAttenuator1 = ', reply)
+        self.DictElecraftCurrentSettings['RecieverAttenuator1'] = reply[2:-1]
         self.k3.write('RA$;'.encode())
         reply = self.k3.read(20)
-        print('Rec 2 Atten = ', reply)
+        reply = str(reply, 'utf-8')  # Convert bytes to string.
+        if DEBUG: print('RecieveAttenuator2 = ', reply)
+        self.DictElecraftCurrentSettings['RecieverAttenuator2'] = reply[3:-1]
+    def getTranscPowerStatus(self):
+        self.k3.write('PS;'.encode())
+        reply = self.k3.read(20)
+        reply = str(reply, 'utf-8')  # Convert bytes to string.
+        self.DictElecraftCurrentSettings['TranscPowerStatus'] = reply[2]
+        if DEBUG: print('TranscPowerStatus = ', reply)
+
+    def getRFGain(self):
+        self.k3.write('RG;'.encode())
+        reply = self.k3.read(20)
+        reply = str(reply, 'utf-8')  # Convert bytes to string.
+        self.DictElecraftCurrentSettings['RFGain1'] = reply[2:-1]
+        if DEBUG: print('RFGain1 = ', reply)
+        self.k3.write('RG$;'.encode())
+        reply = self.k3.read(20)
+        reply = str(reply, 'utf-8')  # Convert bytes to string.
+        self.DictElecraftCurrentSettings['RFGain2'] = reply[3:-1]
+        if DEBUG: print('RFGain2 = ', reply)
+
+    def getHResSMeter(self):
+        self.k3.write('SMH;'.encode())
+        reply = self.k3.read(20)
+        reply = str(reply, 'utf-8')  # Convert bytes to string.
+        self.DictElecraftCurrentSettings['HResolutionSmeter'] = reply[3:-1]
+        if DEBUG: print('HResolutionSmeter = ', reply)
+    def getSquelchLevel(self):
+        self.k3.write('SQ;'.encode())
+        reply = self.k3.read(20)
+        reply = str(reply, 'utf-8')  # Convert bytes to string.
+        if DEBUG: print('SquelchLevel1 = ', reply)
+        self.DictElecraftCurrentSettings['SquelchLevel1'] = reply[2:-1]
+        self.k3.write('SQ$;'.encode())
+        reply = self.k3.read(20)
+        reply = str(reply, 'utf-8')  # Convert bytes to string.
+        if DEBUG: print('SquelchLevel2 = ', reply)
+        self.DictElecraftCurrentSettings['SquelchLevel2'] = reply[3:-1]
+
+    def getSWR(self):
+        self.k3.write('SW;'.encode())
+        reply = self.k3.read(20)
+        reply = str(reply, 'utf-8')  # Convert bytes to string.
+        self.DictElecraftCurrentSettings['SWR'] = reply[2:-1]
+        if DEBUG: print('SWR = ', reply)
+
+    def getRecievedTextCount(self) -> object:
+        self.k3.write('TB;'.encode())
+        reply = self.k3.read(20)
+        reply = str(reply, 'utf-8')  # Convert bytes to string.
+        self.DictElecraftCurrentSettings['RecievedTextCount'] = reply[2:-1]
+        if DEBUG: print('RecievedTextCount = ', reply)
+
+    def getTransmittedTextCount(self) -> object:
+        self.k3.write('TB;'.encode())
+        reply = self.k3.read(20)
+        reply = str(reply, 'utf-8')  # Convert bytes to string.
+        self.DictElecraftCurrentSettings['TransmittedTextCount'] = reply[2:-1]
+        if DEBUG: print('TransmittedTextCount = ', reply)
+
+    def getTransmitMeterMode(self) -> object:
+        self.k3.write('TM;'.encode())
+        reply = self.k3.read(20)
+        reply = str(reply, 'utf-8')  # Convert bytes to string.
+        self.DictElecraftCurrentSettings['TransmitMeterMode'] = reply[2:-1]
+        if DEBUG: print('TransmitMeterMode = ', reply)
+    def getTransmitQuery(self) -> object:
+        self.k3.write('TQ;'.encode())
+        reply = self.k3.read(20)
+        reply = str(reply, 'utf-8')  # Convert bytes to string.
+        self.DictElecraftCurrentSettings['TransmitQuery'] = reply[2:-1]
+        if DEBUG: print('TransmitQuery = ', reply)
+
+    def getVOXState(self) -> object:
+        self.k3.write('VX;'.encode())
+        reply = self.k3.read(20)
+        reply = str(reply, 'utf-8')  # Convert bytes to string.
+        self.DictElecraftCurrentSettings['VOXState'] = reply[2:-1]
+        if DEBUG: print('VOXState = ', reply)
+
+    def getXFILNumber(self) -> object:
+        self.k3.write('XF;'.encode())
+        reply = self.k3.read(20)
+        reply = str(reply, 'utf-8')  # Convert bytes to string.
+        if DEBUG: print('XFILNumber1 = ', reply)
+        self.DictElecraftCurrentSettings['XFILNumber1'] = reply[2:-1]
+        self.k3.write('XF$;'.encode())
+        reply = self.k3.read(20)
+        reply = str(reply, 'utf-8')  # Convert bytes to string.
+        if DEBUG: print('XFILNumber2 = ', reply)
+        self.DictElecraftCurrentSettings['XFILNumber2'] = reply[3:-1]
+
+    def getXITControl(self) -> object:
+        self.k3.write('XT;'.encode())
+        reply = self.k3.read(20)
+        reply = str(reply, 'utf-8')  # Convert bytes to string.
+        self.DictElecraftCurrentSettings['XITControl'] = reply[2:-1]
+        if DEBUG: print('XITControl = ', reply)
+
 
     def getRecSquelchLevel(self):
         self.k3.write('SQ;'.encode())
         reply = self.k3.read(20)
-        print('Rec 1 SquelchLevel = ', reply)
+        reply = str(reply, 'utf-8')  # Convert bytes to string.
+        if DEBUG: print('Rec 1 SquelchLevel = ', reply)
+        self.DictElecraftCurrentSettings['Rec1SquelchLevel'] = reply[-4:]
         self.k3.write('SQ$;'.encode())
         reply = self.k3.read(20)
-        print('Rec 2 SquelchLevel = ', reply)
+        if DEBUG: print('Rec 2 SquelchLevel = ', reply)
+        self.DictElecraftCurrentSettings['Rec2SquelchLevel'] = reply[-4:]
 
     def getSerialNumber(self):
         """Retrieve this unit's serial number.
@@ -522,15 +700,15 @@ class LibK3:
         """
         self.k3.write('mn026;'.encode())  # Display serial number.
         chars, points, icons, blinks = self.getDisplay()
-        print("serial raw1 = ", chars, points, icons, blinks)
+        if DEBUG: print("serial raw1 = ", chars, points, icons, blinks)
         self.k3.write('mn255;'.encode())  # Exit menu.
-        print("serial raw2 = ", chars, points, icons, blinks)
+        if DEBUG: print("serial raw2 = ", chars, points, icons, blinks)
         sn_raw = ''.join(chars)
         sn_raw = sn_raw.strip()
         sn = sn_raw[0:5]
-        print(sn)
+        if DEBUG: print(sn)
 
-        #print('serial = ', sn)
+        if DEBUG: print('serial = ', sn)
 
         self.DictElecraftCurrentSettings['serial_number'] = sn
         return sn
@@ -545,20 +723,45 @@ class LibK3:
          """
         self.k3.write('MG;'.encode())
         reply = self.k3.read(20)
-        encoding = 'utf-8'
-        reply = reply.decode(encoding)
-        print('Mic Gain = ', reply)
+        reply = str(reply, 'utf-8')  # Convert bytes to string.
+        if DEBUG: print('Mic Gain = ', reply)
+        micgain = reply[-4:]
+        if DEBUG: print('Mic Gain = ', micgain)
+
+        self.DictElecraftCurrentSettings['MicGain'] = micgain
         return reply
 
     def getFequency(self):
         self.k3.write('FA;'.encode())
         reply = self.k3.read(20)
-        self.DictElecraftCurrentSettings['frequency_a'] = reply.decode(encoding="utf-8")
-        print('VFO A Freq = ', reply)
+        freq = reply.decode(encoding="utf-8")[:-1]
+        if DEBUG: print('freqA: ', freq)
+        self.DictElecraftCurrentSettings['frequency_a'] = freq
+        if DEBUG: print('VFO A Freq = ', reply)
         self.k3.write('FB;'.encode())
         reply = self.k3.read(20)
-        self.DictElecraftCurrentSettings['frequency_b'] = reply.decode(encoding="utf-8")
-        print('VFO 2 Freq = ', reply)
+        freq = reply.decode(encoding="utf-8")[:-1]
+        if DEBUG: print('freqB: ', freq)
+        self.DictElecraftCurrentSettings['frequency_b'] = freq
+        if DEBUG: print('VFO 2 Freq = ', reply)
+    def getFilterBandwidth(self):
+        self.k3.write('FW;'.encode())
+        reply = self.k3.read(20)
+        freq = reply.decode(encoding="utf-8")[2:-1]
+        if DEBUG: print('FilterBandwidth1: ', freq)
+        #self.DictElecraftCurrentSettings['FilterBandwidth1'] = freq
+        if DEBUG: print('FilterBandwidth1 = ', reply)
+        self.k3.write('FW$;'.encode())
+        reply = self.k3.read(20)
+        freq = reply.decode(encoding="utf-8")[3:-1]
+        if DEBUG: print('FilterBandwidth2: ', freq)
+        #self.DictElecraftCurrentSettings['FilterBandwidth2'] = freq
+        if DEBUG: print('FilterBandwidth1 = ', reply)
+
+    def getTESTER(self):
+        self.k3.write('DS;'.encode())
+        reply = self.k3.read(100)
+        if DEBUG: print('DSVFOA: ', reply)
 
     def getIC(self):
         """
@@ -570,7 +773,7 @@ class LibK3:
         self.ICMiscIconsStatus = []
         self.ICMiscIconsStatus_text = []
         self.k3.write('IC;'.encode())
-        reply = self.k3.read(10)
+        reply = self.k3.read(20)
         if DEBUG: print("Reply:", reply)
         if DEBUG: print("Reply Type:", type(reply))
         if DEBUG: print(str(reply))
@@ -637,6 +840,41 @@ class LibK3:
     #
     #	s e t t e r s
     #
+    def getAgcTimeConstant(self):
+        """
+        Get the AGC Time Constant
+        :return:
+        """
+        self.k3.write('GT;'.encode())
+        reply = self.k3.read(20)
+        reply = str(reply, 'utf-8')  # Convert bytes to string.
+        if DEBUG: print('AgcTimeConstant = ', reply)
+        agctimeconstant = reply[2:-1]
+        if DEBUG: print('AgcTimeConstant = ', agctimeconstant )
+
+        self.DictElecraftCurrentSettings['AgcTimeConstant'] = agctimeconstant
+        return reply
+
+    def getOptions(self):
+        """
+        Get the K Options Installed
+        :return:
+        """
+        #
+        #	s e t t e r s
+        #
+        self.k3.write('OM;'.encode())
+        reply = self.k3.read(20)
+        reply = str(reply, 'utf-8')  # Convert bytes to string.
+        if DEBUG: print('OM = ', reply)
+        reply = reply[3:-1]
+        if DEBUG: print('OM = ', reply)
+
+        self.DictElecraftCurrentSettings['OmOptionsInstalled'] = reply
+        return reply
+
+
+
     def setRxEqBand(self, bi, newVal_dB):
         """Set a Receive EQ band to a value.
 
@@ -855,11 +1093,40 @@ if __name__ == "__main__":
     k3s.connect()
 
     # # k3s.setFreq_Hz('A', 7160000)
-    # k3s.setFreq_Hz('A', 7030000)
+    #k3s.setFreq_Hz('A', 7035050)
     #
     # # k3s.setMode('lsb')
     # k3s.setKeyerSpeed_wpm(15)
+    #k3s.getSerialNumber()
+    #k3s.getMode()
+    #k3s.getMicGain()
+    #k3s.getFequency()
+    #k3s.getRecSquelchLevel()
+    #k3s.getAgcTimeConstant()
+    #k3s.getOptions()
+    k3s.getDisplay()
+    #k3s.getFilterBandwidth()
+    #k3s.getAgcTimeConstant()
+    #k3s.getRecievedTextCount()
+    #k3s.getTransmittedTextCount()
+    #k3s.getTransmitMeterMode()
+    #k3s.getTransmitQuery()
+    #k3s.getVOXState()
+    #k3s.getXFILNumber()
+    #k3s.getXITControl()
+    #k3s.getSWR()
+    #k3s.getHResSMeter()
+    #k3s.getSquelchLevel()
+    #k3s.getNoiseBlanker()
+    #k3s.getNoiseBankerLevel()
+    #k3s.getRecieverPreamp()
+    #k3s.getReqPower_W()
+    #k3s.getPower_W()
+    #k3s.getRecieverAttenuator()
+    #k3s.getTranscPowerStatus()
+    #k3s.getRFGain()
     #
+
     # var1 = 40
     # cmd = 'k31;pc%03d;' % var1
     # print(cmd)
@@ -872,11 +1139,12 @@ if __name__ == "__main__":
     # k3s.setRecNoiseBlanker(onoff=1, receiver=2, dd='03', ii='01')
     # # Attenuator
     # k3s.setRecAttenuator(receiver=1, attenuator='00')
-    # k3s.setRecSquelchLevel(1, '010')
-    # k3s.getAttenuator()
-    # k3s.getNoiseBlanker()
+    #k3s.setRecSquelchLevel(1, '010')
+    #k3s.getAttenuator()
+    #k3s.getNoiseBlanker()
     # k3s.getRecSquelchLevel()
-    # k3s.getFequency()
+
+
     #
     #k3s.getEqBandSetting(3)
     # txm_eq = [-16,-16,-6,0,0,0,0,0]
@@ -884,10 +1152,15 @@ if __name__ == "__main__":
     # k3s.getEqSettings(1)
     # rcv_eq = [0,0,0,0,0,0,0,0]
     # k3s.setEqBands(0, rcv_eq)
-    # k3s.getEqSettings(0)
-    #k3s.getSerialNumber()
+    #k3s.getEqSettings(0)
+
     # k3s.getMode()
     # for key, value in k3s.DictElecraftCurrentSettings.items():
     #     print(key, ' : ', value)
-    k3s.getIC()
+    #k3s.getIC()
+    """for x in k3s.DictElecraftCurrentSettings:
+        val = k3s.DictElecraftCurrentSettings[x]
+        formated_text = "%s30 =  %s" % (x, val)
+        formatted_text = "{:20} = {:2}".format(x, val)
+        print(formatted_text)"""
     sys.exit()
