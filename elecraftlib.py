@@ -364,6 +364,12 @@ class LibK3:
             icons.append((display[10] & (1 << i)) != 0)
         for i in range(8):
             blinks.append((display[11] & (1 << i)) != 0)  # true or false !=0
+        print()
+        if DEBUG: print(chars)
+        if DEBUG: print(points)
+        if DEBUG: print(icons)
+        if DEBUG: print(blinks)
+
         return chars, points, icons, blinks
 
     def eqBandNumber(self, bandIndex):
