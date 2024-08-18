@@ -177,7 +177,6 @@ class LibK3:
         for element in comlist:
             connected.append(element.device)
         return connected
-
     #
     #   K 3   I n t e r a c t i o n s
     #
@@ -399,13 +398,13 @@ class LibK3:
         val = 0
         for attempt in range(numTries):
             cmd = 'swt%02d;' % bn
-            #print('cmd : ', cmd)
+            if DEBUG: print('cmd : ', cmd)
             self.k3.write(cmd.encode())  # Tap button for EQ band.
             self.k3.write('db;'.encode())  # Get VFO B text area.
             s = self.k3.read(12)
-            #print('k3 reading: ', s)
+            if DEBUG: print('k3 reading: ', s)
             s = str(s, 'utf-8')  # Convert bytes to string.
-            #print('k3 reading as string : ', s)
+            if DEBUG: print('k3 reading as string : ', s)
             start = s.rfind('+')
             if start == -1:
                 start = s.rfind('-')
@@ -441,7 +440,7 @@ class LibK3:
             settings_dB.append(setting_dB)
         self.k3.write('swt14;'.encode())  # Exit MENU mode.
 
-        print(settings_dB)
+        if DEBUG: print('EQ settings for specified equalizer : ', settings_dB)
         return settings_dB
 
     def getEssbMode(self):
@@ -469,10 +468,29 @@ class LibK3:
         reply = self.k3.read(6)
         try:
             speed_wpm = int(reply[2:5])
+            if DEBUG: print('Keyer speed : ', speed_wpm)
         except ValueError:
             print('getKeyerSpeed_wpm: unexpected K3 reply "%s"' % reply)
             speed_wpm = -1
         return speed_wpm
+
+    def getKeyerCW_TextBufferStatus(self):
+        """Return the current keyer speed in units of words/minute.
+
+        Input: None
+
+        Output:
+          (int): 0= budffer not full, 1 = buffer full
+        """
+        self.k3.write('KY;'.encode())
+        reply = self.k3.read(6)
+        try:
+            reply = int(reply[2:-1])
+            if DEBUG: print('TextBufferStatus : ', reply)
+        except ValueError:
+            print('TextBufferStatus "%s"' % reply)
+            reply = -1
+        return reply
 
     def getMode(self):
         """Get currnet operating mode of K3.
@@ -736,7 +754,43 @@ class LibK3:
 
         self.DictElecraftCurrentSettings['MicGain'] = micgain
         return reply
+    def getMNvalues(self, mvvalue=999):
+        """Retrieve this unit's Mic Gain.
 
+         Input: None
+
+         Output:
+           (int): Mic Gain 000 - 060.
+         """
+        if mvvalue == 999:
+
+            for curvalue in range(1,10):
+                curvalue = "{0:0=3d}".format(curvalue)
+                mvvalue_code = 'MN' + str(curvalue) + ';'
+                if DEBUG: print('current mvvalue code : ', mvvalue_code)
+                self.k3.write(mvvalue_code.encode())
+                #reply = self.k3.read(6)
+                self.k3.write('MP;'.encode())  # get the value
+                reply = self.k3.read(6)
+                if DEBUG: print('mvvalue codeRAW : ', reply)
+
+                try:
+                    if DEBUG: print('mvvalue codeRAW : ', reply)
+                    reply = int(reply[0:-1])
+                    if DEBUG: print('mvvalue code : ', reply)
+                except ValueError:
+                    print('mvvalue codeError "%s"' % reply)
+                    reply = -1
+                    continue
+                if DEBUG: print(reply)
+                try:
+                    self.k3.write('MN255;')
+                except ValueError:
+                    print('mvvalue codeError "%s"' % reply)
+                    reply = -1
+                    continue
+
+        return reply
     def getFequency(self):
         self.k3.write('FA;'.encode())
         reply = self.k3.read(20)
@@ -879,8 +933,75 @@ class LibK3:
         self.DictElecraftCurrentSettings['OmOptionsInstalled'] = reply
         return reply
 
+    def getVFOLockStatus(self):
+        """Return the current keyer speed in units of words/minute.
 
+        Input: None
 
+        Output:
+          (int): 0= budffer not full, 1 = buffer full
+        """
+        self.k3.write('LK;'.encode())
+        reply = self.k3.read(8)
+        try:
+            if DEBUG: print('VFOLockStatus1RAW : ', reply)
+            reply = int(reply[2:-1])
+            if DEBUG: print('VFOLockStatus1 : ', reply)
+        except ValueError:
+            print('VFOLockStatus1Error "%s"' % reply)
+            reply = -1
+
+        self.k3.write('LK$;'.encode())
+        reply2 = self.k3.read(8)
+        try:
+            if DEBUG: print('VFOLockStatus2RAW : ', reply2)
+            reply2 = int(reply2[3:-1])
+            if DEBUG: print('VFOLockStatus2 : ', reply2)
+        except ValueError:
+            print('VFOLockStatus2Error "%s"' % reply2)
+            reply2 = -1
+        if DEBUG: print(reply, reply2)
+        return reply,reply2
+
+    def getVFOLinkStatus(self):
+        """Return the current keyer speed in units of words/minute.
+
+        Input: None
+
+        Output:
+          (int): 0= budffer not full, 1 = buffer full
+        """
+        self.k3.write('LN;'.encode())
+        reply = self.k3.read(6)
+        try:
+            if DEBUG: print('VFOLinkStatusRAW : ', reply)
+            reply = int(reply[2:-1])
+            if DEBUG: print('VFOLinkStatus : ', reply)
+        except ValueError:
+            print('VFOLinkStatusError "%s"' % reply)
+            reply = -1
+        if DEBUG: print(reply)
+        return reply
+
+    def getMonitorLevel(self):
+        """Return the current keyer speed in units of words/minute.
+
+        Input: None
+
+        Output:
+          (int): 0= budffer not full, 1 = buffer full
+        """
+        self.k3.write('ML;'.encode())
+        reply = self.k3.read(6)
+        try:
+            if DEBUG: print('MonitorLevelRAW : ', reply)
+            reply = int(reply[2:-1])
+            if DEBUG: print('MonitorLevel : ', reply)
+        except ValueError:
+            print('MonitorLevelError "%s"' % reply)
+            reply = -1
+        if DEBUG: print(reply)
+        return reply
     def setRxEqBand(self, bi, newVal_dB):
         """Set a Receive EQ band to a value.
 
@@ -1110,6 +1231,11 @@ if __name__ == "__main__":
     #k3s.getRecSquelchLevel()
     #k3s.getAgcTimeConstant()
     #k3s.getOptions()
+    #k3s.getDisplay()
+    #k3s.getKeyerCW_TextBufferStatus()
+    #k3s.getMonitorLevel()
+    #k3s.getVFOLinkStatus()
+    #k3s.getVFOLockStatus()
     k3s.getDisplay()
     #k3s.getFilterBandwidth()
     #k3s.getAgcTimeConstant()
