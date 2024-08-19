@@ -371,6 +371,69 @@ class LibK3:
 
         return chars, points, icons, blinks
 
+    def getDisplayCharOnly(self):
+        """Retrieve current K3 display.  This is described in detail in the
+        K3 Programmer's Manual but, in short, 4 lists are returned describing
+        the current state of the display.
+
+        Input: None
+
+        Output:
+          """
+
+        DEBUG =0
+        self.k3.write('ds;'.encode())
+        display = self.k3.read(13)  # Retrieve display.
+        if DEBUG: print(type(display), 'display raw = ', display)
+        mybyte = display[1:2]
+        if DEBUG: print(type(mybyte), 'display mybyte = ', mybyte)
+
+        chars = []
+        for i in range(8):
+            #x = '{0:08b}'.format(int(display[i]))
+            #if DEBUG: print('Display Byte', i, x)
+
+            c = display[i + 3] & 0x7f  # Strip MSB (decimal point data)
+            #if DEBUG: print('char bytes = ', c)
+            c = chr(c)
+            #if DEBUG: print('char Value = ', c)
+            if c == '<':
+                c = 'L'
+            elif c == '>':
+                c = '-'
+            elif c == '@':
+                c = ' '
+            elif c == 'K':
+                c = 'H'
+            elif c == 'M':
+                c = 'N'
+            elif c == 'Q':
+                c = 'O'
+            elif c == 'V':
+                c = 'U'
+            elif c == 'W':
+                c = 'I'
+            elif c == 'X':
+                c = 'c-bar'
+            elif c == 'Z':
+                c = 'c'
+            elif c == '[':
+                c = 'r-bar'
+            elif c == '\\':
+                c = 'lambda'
+            elif c == ']':
+                c = 'eq4'  # Rx/tx eq level 4
+            elif c == '^':
+                c = 'eq5'  # Rx/tx eq level 5
+            chars.append(c)
+        if DEBUG: print('CHAR = ', chars)
+        display_line = ''
+        for display_line_char in chars:
+            display_line += display_line_char
+        display_line =display_line[:-1]  # remove last value in list
+        if DEBUG: print('display_line = ', display_line)
+        DEBUG = 1
+        return display_line, chars
     def eqBandNumber(self, bandIndex):
         """Convert EQ band number, 0 through 7, to K3 button number.
         """
@@ -897,9 +960,8 @@ class LibK3:
         :return:
         """
         pass
-    #
-    #	s e t t e r s
-    #
+
+
     def getAgcTimeConstant(self):
         """
         Get the AGC Time Constant
@@ -1002,6 +1064,12 @@ class LibK3:
             reply = -1
         if DEBUG: print(reply)
         return reply
+
+
+    """------------------------------------------------------------------------------------------"""
+    """SETTERS FOR RADIO"""
+    """------------------------------------------------------------------------------------------"""
+
     def setRxEqBand(self, bi, newVal_dB):
         """Set a Receive EQ band to a value.
 
@@ -1152,13 +1220,6 @@ class LibK3:
         self.setFreq_Hz(vfo1, rx_Hz)  # Set rx freq.
         self.setFreq_Hz(vfo2, rx_Hz + up_Hz)  # Set tx to (rx + up).
 
-    def setTest(self):
-        """Toggle between test mode on and off.  Test mode keeps the K3 power
-        amplifier turned off.
-        """
-        cmd = 'k31;swh18;'
-        self.k3.write(cmd.encode())
-
     def setRecNoiseBlanker(self, onoff=0, receiver=1, dd='00', ii='00'):
         """
         onoff: on/off value 1 = on, 0 = off
@@ -1205,6 +1266,56 @@ class LibK3:
         if receiver == 2:
             self.k3.write(('SQ$' + squelch + ';').encode())
 
+    def setCW_IAMBto(self, value='A'):
+        """
+        This changes to CW IAMB menu value to either A or B(b on display, returned b uppercase B
+        value == A change to A
+        value == B change to B
+        """
+        value = value.upper()
+        cmd = 'MN001;'  # set to CW IAMB
+        self.k3.write(cmd.encode())
+
+        display_char = self.getDisplayCharOnly()
+        if DEBUG: print('current display values = ', display_char[0])
+        if DEBUG: print('Set to value = ', value)
+        if 'A' in display_char[1] and value == 'B':
+            if DEBUG: print('Need to change value ', display_char[1], ' in display so set to A')
+            cmd = 'UP;'  # move Down to first value
+            self.k3.write(cmd.encode())
+        if 'B' in display_char[1] and value == 'A':
+            if DEBUG: print('Need to change value ',display_char[1], ' in display so set to A')
+            cmd = 'UP;'  # move Down to first value
+            self.k3.write(cmd.encode())
+
+    def setTest(self):
+        """Toggle between test mode on and off.  Test mode keeps the K3 power
+        amplifier turned off.
+        """
+        cmd = 'MN001;'  # set to CW IAMB
+        self.k3.write(cmd.encode())
+
+        display_char = self.getDisplayCharOnly()
+        if DEBUG: print('Currentdisplay chars = ', display_char[0])
+        if 'A' in display_char[1]:
+            cmd = 'UP;'  # move Down to first value
+            self.k3.write(cmd.encode())
+        if 'b' in display_char[1]:
+            cmd = 'UP;'  # move Down to first value
+            #self.k3.write(cmd.encode())
+        display_char = self.getDisplayCharOnly()
+        if DEBUG: print('display chars = ', display_char[0])
+
+        # Use this is a display value con be returned
+        #self.k3.write('MP;'.encode())
+        #reply = self.k3.read(6)
+        #if DEBUG: print(reply)
+        #cmd = 'DN;'  # move Down to first value
+        #for x in range(0,29): self.k3.write(cmd.encode())
+        #cmd = 'UP;'  # set to CW IAMB to b
+        #self.k3.write(cmd.encode())
+
+
 
 # setup 1
 def setup01():
@@ -1218,6 +1329,9 @@ if __name__ == "__main__":
     k3s = LibK3()
 
     k3s.connect()
+
+    #k3s.setTest()
+    k3s.setCW_IAMBto(value='A')
 
     # # k3s.setFreq_Hz('A', 7160000)
     #k3s.setFreq_Hz('A', 7035050)
@@ -1236,7 +1350,7 @@ if __name__ == "__main__":
     #k3s.getMonitorLevel()
     #k3s.getVFOLinkStatus()
     #k3s.getVFOLockStatus()
-    k3s.getDisplay()
+    #k3s.getDisplay()
     #k3s.getFilterBandwidth()
     #k3s.getAgcTimeConstant()
     #k3s.getRecievedTextCount()
