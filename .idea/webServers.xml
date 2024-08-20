@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="WebServers">
+    <option name="servers">
+      <webServer id="b6fa8d02-723c-443a-8182-2a52acf8bbb4" name="elecraft_pi">
+        <fileTransfer rootFolder="/home/pi" accessType="SFTP" host="192.168.20.217" port="22" sshConfigId="299a9937-78cc-4e22-882a-ec8ca70f6b2e" sshConfig="pi@192.168.20.217:22 password">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" keepAliveTimeout="0" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
+    </option>
+  </component>
+</project>
