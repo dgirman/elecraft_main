@@ -55,7 +55,8 @@ class LibK3:
             'cwRev': 7,
             'dataRev': 9}
 
-        self.DictElecraftCurrentSettings = {'platform': '--',
+        self.DictElecraftCurrentSettings = {'pointer': '1',
+                                            'platform': '--',
                                             'frequency_a': '--',
                                             'frequency_b': '--',
                                             'serial_number': '--',
@@ -468,6 +469,7 @@ class LibK3:
             self.k3.write('db;'.encode())  # Get VFO B text area.
             s = self.k3.read(12)
             if DEBUG: print('k3 reading: ', s)
+
             s = str(s, 'utf-8')  # Convert bytes to string.
             if DEBUG: print('k3 reading as string : ', s)
             start = s.rfind('+')
@@ -484,9 +486,10 @@ class LibK3:
             break
         if not gotIt:
             print('Couldn\'t read EQ band %d. Using 0 (wrong)!!' % bi)
+
         return val
 
-    def getEqSettings(self, tx):
+    def getEqSettings(self, tx=False):
         """Retrieve the EQ settings for specified equalizer.
 
         Input:
@@ -701,11 +704,12 @@ class LibK3:
         reply = str(reply, 'utf-8')  # Convert bytes to string.
         if DEBUG: print('SquelchLevel1 = ', reply)
         self.DictElecraftCurrentSettings['SquelchLevel1'] = reply[2:-1]
+
         self.k3.write('SQ$;'.encode())
-        reply = self.k3.read(20)
-        reply = str(reply, 'utf-8')  # Convert bytes to string.
-        if DEBUG: print('SquelchLevel2 = ', reply)
-        self.DictElecraftCurrentSettings['SquelchLevel2'] = reply[3:-1]
+        reply2 = self.k3.read(20)
+        reply2 = str(reply2, 'utf-8')  # Convert bytes to string.
+        if DEBUG: print('SquelchLevel2 = ', reply2)
+        self.DictElecraftCurrentSettings['SquelchLevel2'] = reply[2:-1]
 
     def getSWR(self):
         self.k3.write('SW;'.encode())
@@ -754,6 +758,7 @@ class LibK3:
         reply = str(reply, 'utf-8')  # Convert bytes to string.
         if DEBUG: print('XFILNumber1 = ', reply)
         self.DictElecraftCurrentSettings['XFILNumber1'] = reply[2:-1]
+
         self.k3.write('XF$;'.encode())
         reply = self.k3.read(20)
         reply = str(reply, 'utf-8')  # Convert bytes to string.
@@ -774,10 +779,12 @@ class LibK3:
         reply = str(reply, 'utf-8')  # Convert bytes to string.
         if DEBUG: print('Rec 1 SquelchLevel = ', reply)
         self.DictElecraftCurrentSettings['Rec1SquelchLevel'] = reply[-4:]
+
         self.k3.write('SQ$;'.encode())
-        reply = self.k3.read(20)
-        if DEBUG: print('Rec 2 SquelchLevel = ', reply)
-        self.DictElecraftCurrentSettings['Rec2SquelchLevel'] = reply[-4:]
+        reply2 = self.k3.read(20)
+        reply2 = str(reply2, 'utf-8')  # Convert bytes to string.
+        if DEBUG: print('Rec 2 SquelchLevel = ', reply2)
+        self.DictElecraftCurrentSettings['Rec2SquelchLevel'] = reply2[-4:]
 
     def getSerialNumber(self):
         """Retrieve this unit's serial number.
@@ -874,13 +881,14 @@ class LibK3:
         reply = self.k3.read(20)
         freq = reply.decode(encoding="utf-8")[2:-1]
         if DEBUG: print('FilterBandwidth1: ', freq)
-        #self.DictElecraftCurrentSettings['FilterBandwidth1'] = freq
+        self.DictElecraftCurrentSettings['FilterBandwidth1'] = freq
         if DEBUG: print('FilterBandwidth1 = ', reply)
+
         self.k3.write('FW$;'.encode())
         reply = self.k3.read(20)
         freq = reply.decode(encoding="utf-8")[3:-1]
         if DEBUG: print('FilterBandwidth2: ', freq)
-        #self.DictElecraftCurrentSettings['FilterBandwidth2'] = freq
+        self.DictElecraftCurrentSettings['FilterBandwidth2'] = freq
         if DEBUG: print('FilterBandwidth1 = ', reply)
 
     def getTESTER(self):
@@ -1319,6 +1327,7 @@ class LibK3:
 
 
     def update_settings_table(self):
+        if DEBUG: print(self.DictElecraftCurrentSettings)
         dict_settings = self.DictElecraftCurrentSettings
         self.mysql.update_settings_table(dict_settings)
 
@@ -1340,35 +1349,34 @@ if __name__ == "__main__":
     #k3s.setTest()
     #k3s.setCW_IAMBto(value='A')
 
-    k3s.update_settings_table()
-
     # # k3s.setFreq_Hz('A', 7160000)
     #k3s.setFreq_Hz('A', 7035050)
     #
     # # k3s.setMode('lsb')
     # k3s.setKeyerSpeed_wpm(15)
-    #k3s.getSerialNumber()
-    #k3s.getMode()
-    #k3s.getMicGain()
-    #k3s.getFequency()
-    #k3s.getRecSquelchLevel()
-    #k3s.getAgcTimeConstant()
-    #k3s.getOptions()
-    #k3s.getDisplay()
-    #k3s.getKeyerCW_TextBufferStatus()
-    #k3s.getMonitorLevel()
-    #k3s.getVFOLinkStatus()
-    #k3s.getVFOLockStatus()
-    #k3s.getDisplay()
-    #k3s.getFilterBandwidth()
-    #k3s.getAgcTimeConstant()
+    k3s.getEqSettings()
+    k3s.getSerialNumber()
+    k3s.getMode()
+    k3s.getMicGain()
+    k3s.getFequency()
+    k3s.getRecSquelchLevel()
+    k3s.getAgcTimeConstant()
+    k3s.getOptions()
+    k3s.getDisplay()
+    k3s.getKeyerCW_TextBufferStatus()
+    k3s.getMonitorLevel()
+    k3s.getVFOLinkStatus()
+    k3s.getVFOLockStatus()
+    k3s.getDisplay()
+    k3s.getFilterBandwidth()
+    k3s.getAgcTimeConstant()
     #k3s.getRecievedTextCount()
     #k3s.getTransmittedTextCount()
     #k3s.getTransmitMeterMode()
     #k3s.getTransmitQuery()
     #k3s.getVOXState()
-    #k3s.getXFILNumber()
-    #k3s.getXITControl()
+    k3s.getXFILNumber()
+    k3s.getXITControl()
     #k3s.getSWR()
     #k3s.getHResSMeter()
     #k3s.getSquelchLevel()
@@ -1376,7 +1384,7 @@ if __name__ == "__main__":
     #k3s.getNoiseBankerLevel()
     #k3s.getRecieverPreamp()
     #k3s.getReqPower_W()
-    #k3s.getPower_W()
+    k3s.getPower_W()
     #k3s.getRecieverAttenuator()
     #k3s.getTranscPowerStatus()
     #k3s.getRFGain()
@@ -1418,4 +1426,7 @@ if __name__ == "__main__":
         formated_text = "%s30 =  %s" % (x, val)
         formatted_text = "{:20} = {:2}".format(x, val)
         print(formatted_text)"""
+
+    k3s.update_settings_table()
+    k3s.mysql.get_settings_table()
     sys.exit()
