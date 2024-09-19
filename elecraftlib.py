@@ -3,8 +3,9 @@ import string, serial, time, os
 import platform
 import serial.tools.list_ports
 import codecs
-
 from bitstring import BitArray
+
+import elecraft_mysql as mysql
 
 # get platform type and set port variable
 PCPORT = 'com3'
@@ -43,6 +44,7 @@ class LibK3:
     # name.
 
     def __init__(self):
+        self.mysql = mysql.MySqlMain()
         self.modeName = {
             'lsb': 1,
             'usb': 2,
@@ -53,41 +55,41 @@ class LibK3:
             'cwRev': 7,
             'dataRev': 9}
 
-        self.DictElecraftCurrentSettings = {'platform':0,
-                                            'frequency_a': 0,
-                                            'frequency_b': 0,
-                                            'serial_number': 0,
-                                            'mode': 0,
-                                            'MicGain':0,
-                                            'Rec1SquelchLevel':0,
-                                            'Rec2SquelchLevel':0,
-                                            'NoiseBlanker1':0,
-                                            'NoiseBlanker2':0,
-                                            'NoiseBlankerLevel1': 0,
-                                            'NoiseBlankerLevel2': 0,
-                                            'OmOptionsInstalled':0,
-                                            'RecieverPreamp1':0,
-                                            'RecieverPreamp2':0,
-                                            'ReqPowerOut_Watts':0,
-                                            'PowerOut_Watts':0,
-                                            'RecieverAttenuator1': 0,
-                                            'RecieverAttenuator2':0,
-                                            'TranscPowerStatus':0,
-                                            'RFGain1':0,
-                                            'RFGain2':0,
-                                            'HResolutionSmeter':0,
-                                            'SquelchLevel1':0,
-                                            'SquelchLevel2':0,
-                                            'SWR':0,
-                                            'RecievedTextCount':0,
-                                            'TransmittedTextCount': 0,
-                                            'TransmitMeterMode':0,
-                                            'TransmitQuery':0,
-                                            'VOXState':0,
-                                            'XFILNumber1':0,
-                                            'XFILNumber2':0,
-                                            'XITControl':0,
-                                            'AgcTimeConstant':0
+        self.DictElecraftCurrentSettings = {'platform': '--',
+                                            'frequency_a': '--',
+                                            'frequency_b': '--',
+                                            'serial_number': '--',
+                                            'mode': '--',
+                                            'MicGain': '--',
+                                            'Rec1SquelchLevel': '--',
+                                            'Rec2SquelchLevel': '--',
+                                            'NoiseBlanker1': '--',
+                                            'NoiseBlanker2': '--',
+                                            'NoiseBlankerLevel1': '--',
+                                            'NoiseBlankerLevel2': '--',
+                                            'OmOptionsInstalled': '--',
+                                            'RecieverPreamp1': '--',
+                                            'RecieverPreamp2': '--',
+                                            'ReqPowerOut_Watts': '--',
+                                            'PowerOut_Watts': '--',
+                                            'RecieverAttenuator1': '--',
+                                            'RecieverAttenuator2': '--',
+                                            'TranscPowerStatus': '--',
+                                            'RFGain1': '--',
+                                            'RFGain2': '--',
+                                            'HResolutionSmeter': '--',
+                                            'SquelchLevel1': '--',
+                                            'SquelchLevel2': '--',
+                                            'SWR': '--',
+                                            'RecievedTextCount': '--',
+                                            'TransmittedTextCount': '--',
+                                            'TransmitMeterMode': '--',
+                                            'TransmitQuery': '--',
+                                            'VOXState': '--',
+                                            'XFILNumber1': '--',
+                                            'XFILNumber2': '--',
+                                            'XITControl': '--',
+                                            'AgcTimeConstant': '--'
 
                                             }
         self.DictElecraftCurrentSettings['platform'] = platform.system()
@@ -1316,6 +1318,13 @@ class LibK3:
         #self.k3.write(cmd.encode())
 
 
+    def update_settings_table(self):
+        dict_settings = self.DictElecraftCurrentSettings
+        self.mysql.update_settings_table(dict_settings)
+
+
+
+
 
 # setup 1
 def setup01():
@@ -1327,11 +1336,11 @@ if __name__ == "__main__":
     import sys
 
     k3s = LibK3()
-
     k3s.connect()
-
     #k3s.setTest()
-    k3s.setCW_IAMBto(value='A')
+    #k3s.setCW_IAMBto(value='A')
+
+    k3s.update_settings_table()
 
     # # k3s.setFreq_Hz('A', 7160000)
     #k3s.setFreq_Hz('A', 7035050)
