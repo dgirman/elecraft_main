@@ -90,8 +90,9 @@ class LibK3:
                                             'XFILNumber1': '--',
                                             'XFILNumber2': '--',
                                             'XITControl': '--',
-                                            'AgcTimeConstant': '--'
-
+                                            'AgcTimeConstant': '--',
+                                            'BandNumberA': '--',
+                                            'BandNumberB': '--',
                                             }
         self.DictElecraftCurrentSettings['platform'] = platform.system()
         self.modeNum = ['unknown', 'lsb', 'usb', 'cw', 'fm', 'am', 'data',
@@ -288,6 +289,21 @@ class LibK3:
     #
     #	g e t t e r s
     #
+    def getBandNumbers(self):
+        self.k3.write('BN;'.encode())
+        reply = self.k3.read(20)
+        reply = str(reply, 'utf-8')  # Convert bytes to string.
+        self.DictElecraftCurrentSettings['BandNumberA'] = reply[2:-1]
+        if DEBUG: print('BandNumberA = ', reply)
+        self.k3.write('BN$;'.encode())
+        reply = self.k3.read(20)
+        reply = str(reply, 'utf-8')  # Convert bytes to string.
+        self.DictElecraftCurrentSettings['BandNumberB'] = reply[3:-1]
+        if DEBUG: print('BandNumberB = ', reply)
+
+        pass
+
+
     def getDisplay(self):
         """Retrieve current K3 display.  This is described in detail in the
         K3 Programmer's Manual but, in short, 4 lists are returned describing
@@ -437,6 +453,10 @@ class LibK3:
         if DEBUG: print('display_line = ', display_line)
         DEBUG = 1
         return display_line, chars
+
+
+
+
     def eqBandNumber(self, bandIndex):
         """Convert EQ band number, 0 through 7, to K3 button number.
         """
@@ -863,19 +883,22 @@ class LibK3:
                     continue
 
         return reply
-    def getFequency(self):
-        self.k3.write('FA;'.encode())
-        reply = self.k3.read(20)
-        freq = reply.decode(encoding="utf-8")[:-1]
-        if DEBUG: print('freqA: ', freq)
-        self.DictElecraftCurrentSettings['frequency_a'] = freq
-        if DEBUG: print('VFO A Freq = ', reply)
-        self.k3.write('FB;'.encode())
-        reply = self.k3.read(20)
-        freq = reply.decode(encoding="utf-8")[:-1]
-        if DEBUG: print('freqB: ', freq)
-        self.DictElecraftCurrentSettings['frequency_b'] = freq
-        if DEBUG: print('VFO 2 Freq = ', reply)
+    def getFequency(self, vfo = 'AB'):
+
+        if 'A'in vfo:
+            self.k3.write('FA;'.encode())
+            reply = self.k3.read(20)
+            freq = reply.decode(encoding="utf-8")[:-1]
+            if DEBUG: print('freqA: ', freq)
+            self.DictElecraftCurrentSettings['frequency_a'] = freq
+        if 'B'in vfo:
+            self.k3.write('FB;'.encode())
+            reply = self.k3.read(20)
+            freq = reply.decode(encoding="utf-8")[:-1]
+            if DEBUG: print('freqB: ', freq)
+            self.DictElecraftCurrentSettings['frequency_b'] = freq
+        return
+
     def getFilterBandwidth(self):
         self.k3.write('FW;'.encode())
         reply = self.k3.read(20)
@@ -1144,11 +1167,21 @@ class LibK3:
 
         Output: None
         """
-        if vfo.lower() != 'a' and vfo.lower() != 'b':
-            print('setFreq_Hz: vfo must be A or B, not %s' % vfo)
-            return
-        cmd = 'f%c%011d;' % (vfo.upper(), int(freq_Hz))
-        self.k3.write(cmd.encode())
+
+        if DEBUG: print('freq_Hz = ',freq_Hz)
+        if DEBUG: print('vfo = ',vfo)
+
+        if vfo.upper() == 'A' or vfo.upper() == 'B' :
+            cmd = 'F%c%011d;' % (vfo.upper(), int(freq_Hz))
+            if DEBUG: print('cmd = ', cmd)
+            self.k3.write(cmd.encode())
+
+            if DEBUG: print('reply: ', reply)
+        else:
+            print('ERROR:  VFO must be ""A"" or ""B""')
+
+
+
 
     def setK2ExtendedMode(self):
         """Put K2 in Extended Mode to enable newest firmware commands.
@@ -1336,16 +1369,13 @@ class LibK3:
 
 
 # setup 1
-def setup01():
+def run_setup01():
     k3s.setFreq_Hz('A', 7207000)
     k3s.setMode('lsb')
 
+    k3s.getBandNumbers()
 
-if __name__ == "__main__":
-    import sys
-
-    k3s = LibK3()
-    k3s.connect()
+def tester1():
     #k3s.setTest()
     #k3s.setCW_IAMBto(value='A')
 
@@ -1429,4 +1459,13 @@ if __name__ == "__main__":
 
     k3s.update_settings_table()
     k3s.mysql.get_settings_table()
+
+
+if __name__ == "__main__":
+    import sys
+
+    k3s = LibK3()
+    k3s.connect()
+    run_setup01()
+
     sys.exit()
