@@ -45,7 +45,10 @@ class LibK3:
 
     def __init__(self):
         self.mysql = mysql.MySqlMain()
-        self.modeName = {
+
+        #Table 2 -8. Operating modes and data sub-modes
+        # using dict to use mode as key to get mode number
+        self.modeNameDict = {
             'lsb': 1,
             'usb': 2,
             'cw': 3,
@@ -54,6 +57,60 @@ class LibK3:
             'data': 6,
             'cwRev': 7,
             'dataRev': 9}
+
+        #Table 2 -8. Operating modes and data sub-modes
+        self.submodeName = {'0' : 'DATA A',
+                            '1' : 'AFSK A',
+                            '2' : 'FSK D',
+                            '3' : 'PSK D'
+                            }
+
+
+        # Using list to decode a mode number to name
+        self.modeNameList = ['unknown', 'lsb', 'usb', 'cw', 'fm', 'am', 'data',
+                        'cwRev', 'unknown', 'dataRev']
+
+        # Table 2-4. Band numbers.
+        # decodes returned band code to the band text name
+        # band code is key, band name is value
+        self.bandName = {'BN00' : '160 m',
+                     'BN01' : '080 m',
+                     'BN02' : '060 m',
+                     'BN03' : '040 m',
+                     'BN04' : '030 m',
+                     'BN05' : '020 m',
+                     'BN06' : '017 m',
+                     'BN07' : '012 m',
+                     'BN08' : '010 m',
+                     'BN09' : '006 m',
+                     'BN10' : 'Resvd',
+                     'BN00' : 'Resvd',
+                     'BN12' : 'Resvd',
+                     'BN13' : 'Resvd',
+                     'BN14' : 'Resvd',
+                     'BN15' : 'Resvd',
+                     'BN16' : 'Xvtr#1',
+                     'BN17' : 'Xvtr#2',
+                     'BN18' : 'Xvtr#3',
+                     'BN19' : 'Xvtr#4',
+                     'BN20' : 'Xvtr#5',
+                     'BN21' : 'Xvtr#6',
+                     'BN22' : 'Xvtr#7',
+                     'BN23' : 'Xvtr#8',
+                     'BN24' : 'Xvtr#9'
+                     }
+
+        # Table 2.5 decodes Set filter bandwidth parameter
+        # filter bandwidth to the BWxxx value
+        self.filterBandwidthToCode = {'0050' : '0005',
+                                       '0100' : '0010',
+                                       '0200' : '0020',
+                                       '0250' : '0025',
+                                       '0400' : '0040',
+                                       '1000' : '0100',
+                                       '1800' : '0180',
+                                       '2200' : '0220'
+                                       }
 
         self.DictElecraftCurrentSettings = {'pointer': '1',
                                             'platform': '--',
@@ -94,9 +151,6 @@ class LibK3:
                                             'BandNumberA': '--',
                                             'BandNumberB': '--',
                                             }
-        self.DictElecraftCurrentSettings['platform'] = platform.system()
-        self.modeNum = ['unknown', 'lsb', 'usb', 'cw', 'fm', 'am', 'data',
-                        'cwRev', 'unknown', 'dataRev']
         self.k3 = ''
         self.ICMiscIconsStatus = []
         self.ICMiscIconsStatus_text = []
@@ -144,6 +198,17 @@ class LibK3:
 
                                            ]
 
+        #Table 2-7. KY command special characters.
+        self.CWProsignSpecialBehavior = {'(' : 'KN',
+                                         '+' : 'AR',
+                                         '=': 'BT',
+                                         '%': 'AS',
+                                         '*': 'SK',
+                                         '!': 'VE',
+                                         '<': 'INTO_TEXT_MODE',
+                                         '>': 'OUT OF TEXT_MODE',
+                                         '@': 'END CW MESSAGE'
+                                         }
 
     def connect(self, dev=PCPORT, baud=38400):
         """Connect to K3 using specified device and baud rate.
@@ -181,10 +246,10 @@ class LibK3:
         for element in comlist:
             connected.append(element.device)
         return connected
+
     #
     #   K 3   I n t e r a c t i o n s
     #
-
     def abSwap(self):
         """Swap A and B VFOs.
 
@@ -293,15 +358,27 @@ class LibK3:
         self.k3.write('BN;'.encode())
         reply = self.k3.read(20)
         reply = str(reply, 'utf-8')  # Convert bytes to string.
-        self.DictElecraftCurrentSettings['BandNumberA'] = reply[2:-1]
-        if DEBUG: print('BandNumberA = ', reply)
+        self.DictElecraftCurrentSettings['BandNumberA'] = reply[0:-1]
+        if DEBUG: print('BandNumberA = ', self.DictElecraftCurrentSettings['BandNumberA'])
+
         self.k3.write('BN$;'.encode())
         reply = self.k3.read(20)
         reply = str(reply, 'utf-8')  # Convert bytes to string.
-        self.DictElecraftCurrentSettings['BandNumberB'] = reply[3:-1]
-        if DEBUG: print('BandNumberB = ', reply)
 
-        pass
+        self.DictElecraftCurrentSettings['BandNumberB'] = reply[0:2] + reply[3:-1]
+        if DEBUG: print('BandNumberB = ', self.DictElecraftCurrentSettings['BandNumberB'])
+        return (self.DictElecraftCurrentSettings['BandNumberA'],self.DictElecraftCurrentSettings['BandNumberB'])
+
+    def getBandNames(self):
+        bandNumbers = self.getBandNumbers()
+        if DEBUG: print('BandNumbers = ', bandNumbers)
+        if DEBUG: print('BandNumbersA = ', bandNumbers[0])
+        if DEBUG: print('BandNumbersB = ', bandNumbers[1])
+        bandNameA = self.bandName.get(bandNumbers[0])
+        bandNameB = self.bandName.get(bandNumbers[1])
+        if DEBUG: print('BandNameA = ', bandNameA)
+        if DEBUG: print('BandNameB = ', bandNameB)
+        return (bandNameA, bandNameB)
 
 
     def getDisplay(self):
@@ -389,7 +466,6 @@ class LibK3:
         if DEBUG: print(blinks)
 
         return chars, points, icons, blinks
-
     def getDisplayCharOnly(self):
         """Retrieve current K3 display.  This is described in detail in the
         K3 Programmer's Manual but, in short, 4 lists are returned describing
@@ -453,18 +529,13 @@ class LibK3:
         if DEBUG: print('display_line = ', display_line)
         DEBUG = 1
         return display_line, chars
-
-
-
-
-    def eqBandNumber(self, bandIndex):
+    def getEqBandNumber(self, bandIndex):
         """Convert EQ band number, 0 through 7, to K3 button number.
         """
         if not 0 <= bandIndex <= 7:
             return -1
         bn = [11, 12, 13, 24, 27, 29, 33, 34]
         return bn[bandIndex]
-
     def getEqBandSetting(self, bi):
         """Return EQ band setting for specified band on current EQ.
 
@@ -508,7 +579,6 @@ class LibK3:
             print('Couldn\'t read EQ band %d. Using 0 (wrong)!!' % bi)
 
         return val
-
     def getEqSettings(self, tx=False):
         """Retrieve the EQ settings for specified equalizer.
 
@@ -530,20 +600,22 @@ class LibK3:
 
         if DEBUG: print('EQ settings for specified equalizer : ', settings_dB)
         return settings_dB
-
     def getEssbMode(self):
         """Find out if K3 is in ESSB mode or not.  Only makes sense to call
         if K3 is in ssb mode.
-
         Input: None
-
         Output:
           (boolean): True/False if K3 is/isn't in ESSB mode.
         """
         self.k3.write('es;'.encode())
-        essbMode = self.k3.read(3)  # EQn, n == 0/1 for ESSB off/on.
-        return essbMode[2] == '1'
-
+        reply = self.k3.read(3)  # EQn, n == 0/1 for ESSB off/on.
+        if DEBUG: print('getEssbMode reply = ', reply)
+        reply = str(reply, 'utf-8')  # Convert bytes to string.
+        if DEBUG: print('getEssbMode reply text = ', reply)
+        essbMode = int(reply[2])
+        if DEBUG and essbMode == 1: print('essbMode reply = ', essbMode, 'in essbMode')
+        if DEBUG and essbMode == 0: print('essbMode reply = ', essbMode, 'NOT in essbMode')
+        return essbMode
     def getKeyerSpeed_wpm(self):
         """Return the current keyer speed in units of words/minute.
 
@@ -561,7 +633,6 @@ class LibK3:
             print('getKeyerSpeed_wpm: unexpected K3 reply "%s"' % reply)
             speed_wpm = -1
         return speed_wpm
-
     def getKeyerCW_TextBufferStatus(self):
         """Return the current keyer speed in units of words/minute.
 
@@ -579,35 +650,28 @@ class LibK3:
             print('TextBufferStatus "%s"' % reply)
             reply = -1
         return reply
-
     def getMode(self):
         """Get currnet operating mode of K3.
-
         Input: None
-
         Output:
           (string): mode, one of am, cw, fm, lsb, usb, lsbEssb, usbEssb.
         """
-        numTries = 10
-        gotIt = False
-        for i in range(numTries):
-            self.k3.write('md;'.encode())
-            reply = self.k3.read(10)
-            reply = str(reply, 'utf-8')  # Convert bytes to string.
-            reply = reply.lower()
-            if reply[0:2] == 'md' and reply[3] == ';':
-                gotIt = True
-                break
-        if not gotIt:
-            if DEBUG: print('getMode: after %d tries, unexpected K3 reply "%s"'
-                  % (numTries, reply))
-            return 'unknown'
-        mode = self.modeNum[int(reply[2])]
+        self.k3.write('md;'.encode())
+        reply = self.k3.read(20)
+        reply = str(reply, 'utf-8')  # Convert bytes to string.
+        if DEBUG: print('getMode reply = ', reply)
+
+        reply = int(reply[2])
+        if DEBUG: print('getMode reply mode number = ', reply)
+
+        mode = self.modeNameList[reply]
+        if DEBUG: print('getMode from self.modeNameList = ', mode)
+        # for usb and lsb get the essb mode which is either 0 or 1
         if mode in ['lsb', 'usb'] and self.getEssbMode():
             return mode + 'Essb'
         self.DictElecraftCurrentSettings['mode'] = mode
+        if DEBUG: print('mode = ', self.DictElecraftCurrentSettings['mode'])
         return mode
-
     def getReqPower_W(self):
         """Return current power level in units of Watts.
 
@@ -646,7 +710,6 @@ class LibK3:
             if DEBUG: print('getPower_W: unexpected K3 reply "%s"' % reply)
             power_W = -1
         return power_W
-
     def getNoiseBlanker(self):
         self.k3.write('NB;'.encode())
         reply = self.k3.read(20)
@@ -658,7 +721,6 @@ class LibK3:
         reply = str(reply, 'utf-8')  # Convert bytes to string.
         self.DictElecraftCurrentSettings['NoiseBlanker2'] = reply[3]
         if DEBUG: print('NoiseBlanker2 = ', reply)
-
     def getNoiseBankerLevel(self):
         self.k3.write('NL;'.encode())
         reply = self.k3.read(20)
@@ -670,7 +732,6 @@ class LibK3:
         reply = str(reply, 'utf-8')  # Convert bytes to string.
         self.DictElecraftCurrentSettings['NoiseBlankerLevel2'] = reply[3:-1]
         if DEBUG: print('NoiseBlankerLevel2 = ', reply)
-
     def getRecieverPreamp(self):
         self.k3.write('PA;'.encode())
         reply = self.k3.read(20)
@@ -699,7 +760,6 @@ class LibK3:
         reply = str(reply, 'utf-8')  # Convert bytes to string.
         self.DictElecraftCurrentSettings['TranscPowerStatus'] = reply[2]
         if DEBUG: print('TranscPowerStatus = ', reply)
-
     def getRFGain(self):
         self.k3.write('RG;'.encode())
         reply = self.k3.read(20)
@@ -711,7 +771,6 @@ class LibK3:
         reply = str(reply, 'utf-8')  # Convert bytes to string.
         self.DictElecraftCurrentSettings['RFGain2'] = reply[3:-1]
         if DEBUG: print('RFGain2 = ', reply)
-
     def getHResSMeter(self):
         self.k3.write('SMH;'.encode())
         reply = self.k3.read(20)
@@ -730,28 +789,24 @@ class LibK3:
         reply2 = str(reply2, 'utf-8')  # Convert bytes to string.
         if DEBUG: print('SquelchLevel2 = ', reply2)
         self.DictElecraftCurrentSettings['SquelchLevel2'] = reply[2:-1]
-
     def getSWR(self):
         self.k3.write('SW;'.encode())
         reply = self.k3.read(20)
         reply = str(reply, 'utf-8')  # Convert bytes to string.
         self.DictElecraftCurrentSettings['SWR'] = reply[2:-1]
         if DEBUG: print('SWR = ', reply)
-
     def getRecievedTextCount(self) -> object:
         self.k3.write('TB;'.encode())
         reply = self.k3.read(20)
         reply = str(reply, 'utf-8')  # Convert bytes to string.
         self.DictElecraftCurrentSettings['RecievedTextCount'] = reply[2:-1]
         if DEBUG: print('RecievedTextCount = ', reply)
-
     def getTransmittedTextCount(self) -> object:
         self.k3.write('TB;'.encode())
         reply = self.k3.read(20)
         reply = str(reply, 'utf-8')  # Convert bytes to string.
         self.DictElecraftCurrentSettings['TransmittedTextCount'] = reply[2:-1]
         if DEBUG: print('TransmittedTextCount = ', reply)
-
     def getTransmitMeterMode(self) -> object:
         self.k3.write('TM;'.encode())
         reply = self.k3.read(20)
@@ -764,14 +819,12 @@ class LibK3:
         reply = str(reply, 'utf-8')  # Convert bytes to string.
         self.DictElecraftCurrentSettings['TransmitQuery'] = reply[2:-1]
         if DEBUG: print('TransmitQuery = ', reply)
-
     def getVOXState(self) -> object:
         self.k3.write('VX;'.encode())
         reply = self.k3.read(20)
         reply = str(reply, 'utf-8')  # Convert bytes to string.
         self.DictElecraftCurrentSettings['VOXState'] = reply[2:-1]
         if DEBUG: print('VOXState = ', reply)
-
     def getXFILNumber(self) -> object:
         self.k3.write('XF;'.encode())
         reply = self.k3.read(20)
@@ -784,15 +837,12 @@ class LibK3:
         reply = str(reply, 'utf-8')  # Convert bytes to string.
         if DEBUG: print('XFILNumber2 = ', reply)
         self.DictElecraftCurrentSettings['XFILNumber2'] = reply[3:-1]
-
     def getXITControl(self) -> object:
         self.k3.write('XT;'.encode())
         reply = self.k3.read(20)
         reply = str(reply, 'utf-8')  # Convert bytes to string.
         self.DictElecraftCurrentSettings['XITControl'] = reply[2:-1]
         if DEBUG: print('XITControl = ', reply)
-
-
     def getRecSquelchLevel(self):
         self.k3.write('SQ;'.encode())
         reply = self.k3.read(20)
@@ -805,7 +855,6 @@ class LibK3:
         reply2 = str(reply2, 'utf-8')  # Convert bytes to string.
         if DEBUG: print('Rec 2 SquelchLevel = ', reply2)
         self.DictElecraftCurrentSettings['Rec2SquelchLevel'] = reply2[-4:]
-
     def getSerialNumber(self):
         """Retrieve this unit's serial number.
 
@@ -828,7 +877,6 @@ class LibK3:
 
         self.DictElecraftCurrentSettings['serial_number'] = sn
         return sn
-
     def getMicGain(self):
         """Retrieve this unit's Mic Gain.
 
@@ -883,22 +931,27 @@ class LibK3:
                     continue
 
         return reply
-    def getFequency(self, vfo = 'AB'):
+    def getFequencies(self, vfo = 'AB'):
 
         if 'A'in vfo:
             self.k3.write('FA;'.encode())
             reply = self.k3.read(20)
+            if DEBUG: print('reply A: ', reply)
             freq = reply.decode(encoding="utf-8")[:-1]
+            if freq[0] == ';':  freq = freq[1:]        # added to correct ; in the 1st char of replay
             if DEBUG: print('freqA: ', freq)
             self.DictElecraftCurrentSettings['frequency_a'] = freq
         if 'B'in vfo:
             self.k3.write('FB;'.encode())
             reply = self.k3.read(20)
+            if DEBUG: print('reply B: ', reply)
             freq = reply.decode(encoding="utf-8")[:-1]
+            if freq[0] == ';':  freq = freq[1:]        # added to correct ; in the 1st char of replay
             if DEBUG: print('freqB: ', freq)
             self.DictElecraftCurrentSettings['frequency_b'] = freq
-        return
-
+        if DEBUG: print('frequency_a = ', self.DictElecraftCurrentSettings['frequency_a'])
+        if DEBUG: print('frequency_b = ', self.DictElecraftCurrentSettings['frequency_b'])
+        return (self.DictElecraftCurrentSettings['frequency_a'][2:], self.DictElecraftCurrentSettings['frequency_b'][2:])
     def getFilterBandwidth(self):
         self.k3.write('FW;'.encode())
         reply = self.k3.read(20)
@@ -913,12 +966,10 @@ class LibK3:
         if DEBUG: print('FilterBandwidth2: ', freq)
         self.DictElecraftCurrentSettings['FilterBandwidth2'] = freq
         if DEBUG: print('FilterBandwidth1 = ', reply)
-
     def getTESTER(self):
         self.k3.write('DS;'.encode())
         reply = self.k3.read(100)
         if DEBUG: print('DSVFOA: ', reply)
-
     def getIC(self):
         """
         IC (Misc. Icons and Status; GET only)
@@ -957,28 +1008,24 @@ class LibK3:
             for x in 0,1,2,3,4:
                 print(self.ICMiscIconsStatus[x+2], self.ICMiscIconsStatus_text[x])
         return self.ICMiscIconsStatus_text
-
     def getXmtNoiseGate(self):
         """
         get the AGC loud pulse suppresion (on or off)8
         :return:
         """
         pass
-
     def getAgcPls(self):
         """
         get the AGC loud pulse suppresion (on or off)8
         :return:
         """
         pass
-
     def getAgcHold(self):
         """
         get the AGC hold time
         :return:
         """
         pass
-
     def getAgcSlp(self):
         """
         Get the AGC Slope setting
@@ -986,15 +1033,12 @@ class LibK3:
         :return:
         """
         pass
-
     def getAgcThr(self):
         """
         Get the AGC Threshold setting
         :return:
         """
         pass
-
-
     def getAgcTimeConstant(self):
         """
         Get the AGC Time Constant
@@ -1009,7 +1053,6 @@ class LibK3:
 
         self.DictElecraftCurrentSettings['AgcTimeConstant'] = agctimeconstant
         return reply
-
     def getOptions(self):
         """
         Get the K Options Installed
@@ -1027,7 +1070,6 @@ class LibK3:
 
         self.DictElecraftCurrentSettings['OmOptionsInstalled'] = reply
         return reply
-
     def getVFOLockStatus(self):
         """Return the current keyer speed in units of words/minute.
 
@@ -1057,7 +1099,6 @@ class LibK3:
             reply2 = -1
         if DEBUG: print(reply, reply2)
         return reply,reply2
-
     def getVFOLinkStatus(self):
         """Return the current keyer speed in units of words/minute.
 
@@ -1077,7 +1118,6 @@ class LibK3:
             reply = -1
         if DEBUG: print(reply)
         return reply
-
     def getMonitorLevel(self):
         """Return the current keyer speed in units of words/minute.
 
@@ -1097,7 +1137,6 @@ class LibK3:
             reply = -1
         if DEBUG: print(reply)
         return reply
-
 
     """------------------------------------------------------------------------------------------"""
     """SETTERS FOR RADIO"""
@@ -1175,13 +1214,10 @@ class LibK3:
             cmd = 'F%c%011d;' % (vfo.upper(), int(freq_Hz))
             if DEBUG: print('cmd = ', cmd)
             self.k3.write(cmd.encode())
-
-            if DEBUG: print('reply: ', reply)
+            reply = self.k3.read(20)
+            if DEBUG: print('reply = ', reply)
         else:
             print('ERROR:  VFO must be ""A"" or ""B""')
-
-
-
 
     def setK2ExtendedMode(self):
         """Put K2 in Extended Mode to enable newest firmware commands.
@@ -1207,16 +1243,17 @@ class LibK3:
 
     def setMode(self, mode):
         """Set K3 modulation mode.
-
         Input:
           mode (string): K3 mode, must be one of lsb, usb, cw, fm, am, data,
             cwRev, or dataRev.
         """
-        if not mode in self.modeName.keys():
+        # check if given mode is a mode in K3s
+        if not mode in self.modeNameDict.keys():
             print('setMode: unexpected mode requested, "%s"' % mode)
             print('         use: lsb, usb, cw, fm, am, data, cwRev, or dataRev.')
             return
-        m = self.modeName[mode]
+        m = self.modeNameDict[mode]
+        if DEBUG: print('mode = ', m)
         cmd = 'md%d;' % m
         self.k3.write(cmd.encode())
 
@@ -1359,7 +1396,7 @@ class LibK3:
         #self.k3.write(cmd.encode())
 
 
-    def update_settings_table(self):
+    def db_update_settings_table(self):
         if DEBUG: print(self.DictElecraftCurrentSettings)
         dict_settings = self.DictElecraftCurrentSettings
         self.mysql.update_settings_table(dict_settings)
@@ -1370,10 +1407,25 @@ class LibK3:
 
 # setup 1
 def run_setup01():
-    k3s.setFreq_Hz('A', 7207000)
-    k3s.setMode('lsb')
+    print('------set freq A')
+    k3s.setFreq_Hz('A',  3500000)
+    print('\n', '-----set freq B')
+    k3s.setFreq_Hz('B',  21107099)
+    return
+    print('\n', '-----set mode')
+    k3s.setMode('usb')
 
+    print('\n\n', '-----getBandNumbers')
     k3s.getBandNumbers()
+    print('\n\n', '-----getBandName')
+    k3s.getBandNames()
+
+    print('\n', '-----get frequencies')
+    print(k3s.getFequencies())
+    print('\n', '-----get mode')
+    k3s.getMode()
+    print('\n', '-----get frequencies')
+    print(k3s.getFequencies())
 
 def tester1():
     #k3s.setTest()
