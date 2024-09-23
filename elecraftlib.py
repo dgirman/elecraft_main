@@ -4,7 +4,7 @@ import platform
 import serial.tools.list_ports
 import codecs
 from bitstring import BitArray
-
+import time
 import elecraft_mysql as mysql
 
 # get platform type and set port variable
@@ -111,7 +111,6 @@ class LibK3:
                                        '1800' : '0180',
                                        '2200' : '0220'
                                        }
-
         self.DictElecraftCurrentSettings = {'pointer': '1',
                                             'platform': '--',
                                             'frequency_a': '--',
@@ -209,6 +208,9 @@ class LibK3:
                                          '>': 'OUT OF TEXT_MODE',
                                          '@': 'END CW MESSAGE'
                                          }
+
+
+
 
     def connect(self, dev=PCPORT, baud=38400):
         """Connect to K3 using specified device and baud rate.
@@ -354,6 +356,41 @@ class LibK3:
     #
     #	g e t t e r s
     #
+    def getBandForFreq(self, freq):
+        '''
+        converts the given frequency into tne band number electraft code BNxx;
+        :param freq:
+        :return:
+        '''
+        freq = int(freq)
+        if DEBUG: print('given freq = ', freq)
+        bandcode = ''
+        if freq <=   2000000 and freq >= 1800000: # 160 meters
+            bandcode = 'BN00;'
+        elif freq <= 4000000 and freq >= 3500000: # 80 meters
+            bandcode = 'BN01;'
+        elif freq <= 5405000 and freq >= 5332000: # 60 meters
+            bandcode = 'BN02;'
+        elif freq <= 7300000 and freq >= 7000000: # 40 meters
+            bandcode = 'BN03;'
+        elif freq <= 10150000 and freq >= 10100000: # 30 meters
+            bandcode = 'BN04;'
+        elif freq <= 14350000 and freq >= 14000000: # 20 meters
+            bandcode = 'BN05;'
+        elif freq <= 18168000 and freq >= 18068000: # 17 meters
+            bandcode = 'BN06;'
+        elif freq <= 21450000 and freq >= 21000000: # 15 meters
+            bandcode = 'BN07;'
+        elif freq <= 24990000 and freq >= 24890000: # 12 Meters
+            bandcode = 'BN08;'
+        elif freq <= 29700000 and freq >= 28000000: # 10 Meters
+            bandcode = 'BN09;'
+        elif freq <= 54000000 and freq >= 50000000: # 6 Meters
+            bandcode = 'BN10;'
+        else:
+            bandcode = 'Not Found'
+        if DEBUG: print('bandcode = ', bandcode)
+        return bandcode
     def getBandNumbers(self):
         self.k3.write('BN;'.encode())
         reply = self.k3.read(20)
@@ -368,7 +405,6 @@ class LibK3:
         self.DictElecraftCurrentSettings['BandNumberB'] = reply[0:2] + reply[3:-1]
         if DEBUG: print('BandNumberB = ', self.DictElecraftCurrentSettings['BandNumberB'])
         return (self.DictElecraftCurrentSettings['BandNumberA'],self.DictElecraftCurrentSettings['BandNumberB'])
-
     def getBandNames(self):
         bandNumbers = self.getBandNumbers()
         if DEBUG: print('BandNumbers = ', bandNumbers)
@@ -379,8 +415,6 @@ class LibK3:
         if DEBUG: print('BandNameA = ', bandNameA)
         if DEBUG: print('BandNameB = ', bandNameB)
         return (bandNameA, bandNameB)
-
-
     def getDisplay(self):
         """Retrieve current K3 display.  This is described in detail in the
         K3 Programmer's Manual but, in short, 4 lists are returned describing
@@ -1199,23 +1233,28 @@ class LibK3:
 
     def setFreq_Hz(self, vfo, freq_Hz):
         """Set frequency of specified VFO.
-
         Input:
-          vfo (string): A or B, case insensitive, specifying VFO.
+          vfo (string): A or B specifying VFO.
           freq_Hz (int): frequency in Hz to set VFO to.
-
         Output: None
         """
-
         if DEBUG: print('freq_Hz = ',freq_Hz)
         if DEBUG: print('vfo = ',vfo)
+        vfo = vfo.upper()
 
-        if vfo.upper() == 'A' or vfo.upper() == 'B' :
-            cmd = 'F%c%011d;' % (vfo.upper(), int(freq_Hz))
-            if DEBUG: print('cmd = ', cmd)
+
+        if vfo == 'A' :
+            cmd = 'FA%011d;' % (int(freq_Hz))
+            if DEBUG: print('cmd = ', cmd, len(cmd))
             self.k3.write(cmd.encode())
             reply = self.k3.read(20)
-            if DEBUG: print('reply = ', reply)
+            if DEBUG: print('A reply = ', reply)
+        elif vfo == 'B' :
+            cmd = 'FB%011d;' % (int(freq_Hz))
+            if DEBUG: print('cmd = ', cmd, len(cmd))
+            self.k3.write(cmd.encode())
+            reply = self.k3.read(20)
+            if DEBUG: print('B reply = ', reply)
         else:
             print('ERROR:  VFO must be ""A"" or ""B""')
 
@@ -1368,6 +1407,18 @@ class LibK3:
             cmd = 'UP;'  # move Down to first value
             self.k3.write(cmd.encode())
 
+    def setBand(self, freq):
+        """Set K3s band givn the frequency
+        Input: in hertz 00 000 000 000
+        Output:
+        """
+        #get the electraft band code for the given freq
+        if DEBUG: print('freq = ', freq)
+        band = self.getBandForFreq(freq)
+        if DEBUG: print('band = ', band)
+        #cmd = 'BNd%d;' % m
+        #self.k3.write(cmd.encode())
+
     def setTest(self):
         """Toggle between test mode on and off.  Test mode keeps the K3 power
         amplifier turned off.
@@ -1407,10 +1458,20 @@ class LibK3:
 
 # setup 1
 def run_setup01():
-    print('------set freq A')
-    k3s.setFreq_Hz('A',  3500000)
+    print('\n', '-----get band for freq')
+    band = k3s.getBandForFreq(21000000)
+    print('band = ', band)
+
+    print('\n------set freq A')
+    #k3s.setFreq_Hz('A',  21000000)
+    time.sleep(2)
     print('\n', '-----set freq B')
-    k3s.setFreq_Hz('B',  21107099)
+    k3s.setFreq_Hz('B',  28000000)
+
+    print('\n------set freq A')
+    k3s.setFreq_Hz('A',  21000000)
+    time.sleep(2)
+
     return
     print('\n', '-----set mode')
     k3s.setMode('usb')
